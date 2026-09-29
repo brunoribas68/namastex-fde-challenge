@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest --cov --cov-fail-under=85
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t autoseguro-agent .
+      - name: Smoke test do container
+        run: |
+          docker run -d --name agent -p 8080:8080 autoseguro-agent
+          for i in $(seq 1 20); do curl -sf localhost:8080/health && exit 0; sleep 1; done
+          docker logs agent; exit 1
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Há quote-service neste repo?
+        id: qs
+        run: test -f quote-service/Dockerfile && echo "found=true" >> "$GITHUB_OUTPUT" || true
+      - if: steps.qs.outputs.found == 'true'
+        uses: astral-sh/setup-uv@v5
+      - if: steps.qs.outputs.found == 'true'
+        run: |
+          docker compose up -d --build quote-service
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 1; done
+          uv sync --frozen
+          uv run pytest -m integration

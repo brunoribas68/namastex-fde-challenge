@@ -1,0 +1,24 @@
+# Substitui o docker-compose.yml do desafio: mantém a quote-service e adiciona o agente.
+services:
+  quote-service:
+    build: ./quote-service
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  agent:
+    build: .
+    ports: ["8080:8080"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      QUOTE_API_URL: http://quote-service:8000
+    depends_on:
+      quote-service:
+        condition: service_healthy
+    restart: unless-stopped
