@@ -45,8 +45,8 @@ A resposta tem `stage` (`collecting`, `quoted`, `handed_off`), `handoff_reason`,
 `quote_id` e `text`. Para ver o trace: `docker compose logs agent --no-log-prefix`. Filtre por
 conversa com `| grep qa-b1` (PowerShell: `| Select-String qa-b1`).
 
-Os exemplos não têm acento de propósito (evita problema de encoding no PowerShell); o agente
-entende com ou sem acento.
+O agente entende com ou sem acento. A resposta declara `charset=utf-8`, e a função do PowerShell
+envia o corpo em UTF-8. Assim os acentos saem certos também no Windows PowerShell 5.1.
 
 ## A. Subida e testes automatizados
 
@@ -54,7 +54,7 @@ entende com ou sem acento.
 |---|---|---|---|
 | A1 | `curl localhost:8080/health` e `curl localhost:8000/health` | `{"status":"ok"}` nos dois | ☐ |
 | A2 | `curl localhost:8000/planos` | Planos `essencial`, `completo`, `premium` e as regras | ☐ |
-| A3 | `docker compose run --rm --build tests` | `All checks passed!`, 89 testes passando, cobertura ≥ 85% | ☐ |
+| A3 | `docker compose run --rm --build tests` | `All checks passed!`, 90 testes passando, cobertura ≥ 85% | ☐ |
 | A4 | `docker compose run --rm --build tests pytest -m integration` | 5 testes passando contra a quote-api real | ☐ |
 | A5 | `docker compose exec agent python -m autoseguro.cli --demo` | Três turnos; o último termina em `[stage=quoted]` com R$ 209,90 | ☐ |
 

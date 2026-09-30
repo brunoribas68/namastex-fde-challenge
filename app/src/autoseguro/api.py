@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .agent import Agent
 from .bootstrap import build_agent
 from .config import Settings
 from .models import Reply
+
+
+class UTF8JSONResponse(JSONResponse):
+    """Declara o charset: sem ele o Windows PowerShell 5.1 lê o JSON como Latin-1 ("CotaÃ§Ã£o")."""
+
+    media_type = "application/json; charset=utf-8"
 
 
 class MessageIn(BaseModel):
@@ -19,7 +26,9 @@ class MessageIn(BaseModel):
 
 def create_app(agent: Agent | None = None) -> FastAPI:
     agent = agent or build_agent(Settings.from_env())
-    app = FastAPI(title="AutoSeguro Agent", version="0.1.0")
+    app = FastAPI(
+        title="AutoSeguro Agent", version="0.1.0", default_response_class=UTF8JSONResponse
+    )
 
     @app.get("/health")
     def health() -> dict:
