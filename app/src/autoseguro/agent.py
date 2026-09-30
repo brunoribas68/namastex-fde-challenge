@@ -11,7 +11,7 @@ from . import messages
 from .extractor import Extractor
 from .models import Conversation, HandoffReason, Plan, Reply, Slots, Stage
 from .policy import Policy
-from .quote_client import Quote, QuoteRejected, QuoteUnavailable
+from .quote_client import Quote, QuoteRefused, QuoteRejected, QuoteUnavailable
 from .store import InMemoryStore
 from .tracing import Tracer
 
@@ -107,6 +107,11 @@ class Agent:
             conv.asked = exc.fields[0]
             label = messages.LABELS.get(conv.asked, "o plano")
             return self._reply(conv, message_id, messages.rejected(exc.detail, label))
+        except QuoteRefused as exc:
+            self.tracer.emit("quote_refused", conv.id, message_id, request_id=request_id,
+                             motivo=exc.motivo)  # fmt: skip
+            return self._handoff(conv, message_id, HandoffReason.QUOTE_REFUSED,
+                                 messages.refused(exc.motivo))  # fmt: skip
         except QuoteUnavailable as exc:
             self.tracer.emit("quote_failed", conv.id, message_id, request_id=request_id,
                              reason=exc.reason, attempts=exc.attempts)  # fmt: skip
@@ -116,16 +121,20 @@ class Agent:
         self.tracer.emit("quote_ok", conv.id, message_id, request_id=request_id, price=quote.price)
         plan = next((p.nome for p in plans if p.id == conv.slots.plano_id), conv.slots.plano_id)
         return self._reply(
-            conv, message_id, messages.quoted(str(plan), quote.price, quote.request_id),
+            conv, message_id, messages.quoted(str(plan), quote),
             quote_id=quote.request_id, price=quote.price,
         )  # fmt: skip
 
-    def _handoff(self, conv: Conversation, message_id: str, reason: HandoffReason) -> Reply:
+    def _handoff(
+        self, conv: Conversation, message_id: str, reason: HandoffReason, text: str | None = None
+    ) -> Reply:
         conv.stage, conv.handoff_reason = Stage.HANDED_OFF, reason
         self.tracer.emit(
             "handoff", conv.id, message_id, reason=reason, collected=conv.slots.payload()
         )
-        return self._reply(conv, message_id, messages.HANDOFF[reason], handoff_reason=reason)
+        return self._reply(
+            conv, message_id, text or messages.HANDOFF[reason], handoff_reason=reason
+        )
 
     @staticmethod
     def _reply(conv: Conversation, message_id: str, text: str, **extra) -> Reply:

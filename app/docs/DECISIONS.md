@@ -15,13 +15,15 @@ usado também como fallback quando o LLM falha).
 | Situação | Comportamento |
 |---|---|
 | Timeout, erro de rede, 429, 5xx, resposta sem preço | Retry com backoff exponencial + jitter, até `QUOTE_MAX_ATTEMPTS` e `QUOTE_DEADLINE_S` |
-| 400/422 | **Sem retry.** Pede ao lead para corrigir o campo apontado; 2ª recusa → handoff |
+| 422 `cotacao_recusada` | **Sem retry.** Regra de negócio (idade > 75, veículo > 20 anos...): explica o motivo e faz handoff `quote_refused` |
+| 400 / 422 de validação | **Sem retry.** Pede ao lead para corrigir o campo apontado; 2ª recusa (ou campo desconhecido) → handoff `quote_rejected` |
+| 200 sem `premio_mensal` válido ou com `plano_id` diferente do pedido | Tratado como falha e refeito (a API assume `essencial` sem plano; conferir o eco evita cotar o plano errado) |
 | 401/403/404 | Falha imediata (configuração), handoff |
 | Falhas seguidas | Circuit breaker abre (5 falhas, cooldown 30 s): falha rápido em vez de empilhar timeouts |
 | Esgotou tudo | Handoff `quote_unavailable` com mensagem honesta; **nenhum preço é inventado** |
 
 Cada tentativa vai ao trace (`quote_attempt`) e a chamada leva `X-Request-ID`. O deadline total
-mantém a conversa responsiva. Mensagens repetidas do webhook (`message_id`) não recotam.
+mantém a conversa responsiva (4 tentativas de 3 s cabem em 15 s; a API tem chamadas lentas de 8 s). Mensagens repetidas do webhook (`message_id`) não recotam.
 
 ## 3. Critérios de handoff
 
@@ -35,6 +37,7 @@ Definidos em `src/autoseguro/policy.py` (`HANDOFF_RULES`) e cobertos por testes.
 | `no_progress` | 3 turnos seguidos (após o primeiro) sem nenhum dado novo |
 | `quote_unavailable` | `/quote` falhou após retries, circuito aberto ou sem lista de planos |
 | `quote_rejected` | A API recusou os dados de novo depois de o lead corrigir |
+| `quote_refused` | A API recusou por regra de negócio (idade > 75, veículo > 20 anos) |
 
 Depois do handoff o bot **para de responder** com conteúdo novo (não disputa a conversa com o humano).
 O evento `handoff` leva o motivo e os dados já coletados, para o humano não recomeçar do zero.
@@ -47,8 +50,11 @@ enviado a nenhum serviço.
 
 ## 5. Regras de cotação ficam na API
 
-`GET /planos` publica as regras; duplicá-las no agente criaria divergência. O agente confia no
-422 e conversa com o lead sobre o campo recusado.
+`GET /planos` publica as regras; duplicá-las no agente criaria divergência. O agente confia nas
+recusas da API e repassa o motivo. Na resposta, mostra o que a API devolveu (franquia, coberturas,
+**carência de 30 dias** de roubo/furto e **primeiro pagamento pro-rata**), sem calcular nada.
+Coletamos `cep` e `data_inicio` (opcionais na API) porque omiti-los deixaria a cotação mais barata
+do que a real (agravo de região, pro-rata).
 
 ## 6. Simplicidade operacional
 

@@ -1,5 +1,5 @@
 from autoseguro.models import HandoffReason, Stage
-from autoseguro.quote_client import QuoteRejected, QuoteUnavailable
+from autoseguro.quote_client import Quote, QuoteRefused, QuoteRejected, QuoteUnavailable
 
 from .conftest import FakeQuotes
 
@@ -97,9 +97,9 @@ def test_bot_stays_quiet_after_handoff(make_agent):
 def test_requote_when_lead_changes_data(make_agent):
     agent, quotes = make_agent()
     agent.handle("c1", FULL)
-    reply = agent.handle("c1", "e no plano básico?")
+    reply = agent.handle("c1", "e no plano essencial?")
     assert reply.stage is Stage.QUOTED and len(quotes.calls) == 2
-    assert quotes.calls[-1].plano_id == "basico"
+    assert quotes.calls[-1].plano_id == "essencial"
 
 
 def test_message_without_new_data_after_quote_only_recaps(make_agent):
@@ -128,3 +128,30 @@ def test_trace_links_messages_and_quotes_without_pii(make_agent, trace_buffer):
     assert events[2]["request_id"] == events[3]["quote_id"]
     assert "123.456.789-09" not in trace_buffer.getvalue()
     assert "01310-100" not in trace_buffer.getvalue()
+
+
+def test_business_refusal_explains_reason_and_hands_off(make_agent):
+    agent, _ = make_agent(FakeQuotes([QuoteRefused("Veiculo com mais de 20 anos nao e aceito.")]))
+    reply = agent.handle("c1", FULL)
+    assert reply.handoff_reason is HandoffReason.QUOTE_REFUSED
+    assert "mais de 20 anos" in reply.text and reply.price is None
+
+
+def test_quote_message_shows_carencia_and_pro_rata_from_api(make_agent):
+    raw = {
+        "franquia": 3000, "coberturas": ["colisao", "carro_reserva"],
+        "carencia": {"coberturas": ["roubo", "furto"], "dias": 30},
+        "primeiro_pagamento_pro_rata": {
+            "dias_no_mes": 31, "dias_cobrados": 17, "valor_primeiro_pagamento": 115.11,
+        },
+    }  # fmt: skip
+    agent, _ = make_agent(FakeQuotes([Quote("r", 209.9, raw)]))
+    text = agent.handle("c1", FULL).text
+    assert "R$ 209,90 por mês" in text and "carro reserva" in text
+    assert "roubo e furto só valem após 30 dias" in text
+    assert "R$ 115,11" in text and "17 de 31" in text
+
+
+def test_quote_message_survives_unexpected_detail_shape(make_agent):
+    agent, _ = make_agent(FakeQuotes([Quote("r", 100.0, {"carencia": {"coberturas": ["x"]}})]))
+    assert "R$ 100,00" in agent.handle("c1", FULL).text

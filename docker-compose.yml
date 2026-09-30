@@ -9,4 +9,23 @@ services:
       QUOTE_SLOW_RATE: "0.10"
       QUOTE_SLOW_SECONDS: "8"
       # QUOTE_SEED: "42"   # descomente p/ falhas reproduziveis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  agent:
+    build: ./app
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      QUOTE_API_URL: http://quote-api:8000
+    depends_on:
+      quote-api:
+        condition: service_healthy
     restart: unless-stopped

@@ -25,6 +25,7 @@ class HandoffReason(StrEnum):
     NO_PROGRESS = "no_progress"
     QUOTE_UNAVAILABLE = "quote_unavailable"
     QUOTE_REJECTED = "quote_rejected"
+    QUOTE_REFUSED = "quote_refused"
 
 
 @dataclass(frozen=True)

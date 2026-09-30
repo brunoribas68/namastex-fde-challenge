@@ -13,7 +13,7 @@ class Settings:
     quote_timeout_s: float = 3.0
     quote_max_attempts: int = 4
     quote_backoff_s: float = 0.4
-    quote_deadline_s: float = 12.0
+    quote_deadline_s: float = 15.0
     trace_file: str = "logs/trace.jsonl"  # "-" escreve no stdout
     anthropic_api_key: str | None = None
     llm_model: str = "claude-sonnet-5-5"

@@ -16,9 +16,6 @@ import httpx
 
 from .models import SLOT_ORDER, Plan, Slots
 
-# Nomes de campo aceitos para o preço na resposta. Ajuste aqui após ver o payload real.
-PRICE_KEYS = ("preco", "premio", "valor", "preco_total", "premio_total", "total")
-
 
 class QuoteUnavailable(Exception):
     """/quote não entregou um preço válido (retries esgotados, circuito aberto, config errada)."""
@@ -29,8 +26,16 @@ class QuoteUnavailable(Exception):
         self.attempts = attempts
 
 
+class QuoteRefused(Exception):
+    """422 `cotacao_recusada`: regra de negócio (ex.: idade > 75). O lead não corrige isso."""
+
+    def __init__(self, motivo: str) -> None:
+        super().__init__(motivo)
+        self.motivo = motivo
+
+
 class QuoteRejected(Exception):
-    """A API respondeu 4xx de validação: os dados enviados não servem. Não adianta repetir."""
+    """400/422 de validação: dado malformado. Dá para pedir ao lead que corrija o campo."""
 
     def __init__(self, detail: str, fields: list[str]) -> None:
         super().__init__(detail)
@@ -45,13 +50,17 @@ class Quote:
     raw: dict
 
 
-def parse_quote(data: object, request_id: str) -> Quote:
+def parse_quote(data: object, request_id: str, plano_id: str | None) -> Quote:
+    """Valida a resposta: `premio_mensal` positivo e `plano_id` igual ao pedido.
+
+    A API assume "essencial" quando o plano não vem; conferir o eco evita cotar o plano errado.
+    """
     if isinstance(data, dict):
-        for key in PRICE_KEYS:
-            value = data.get(key)
-            if isinstance(value, int | float) and not isinstance(value, bool) and value > 0:
-                return Quote(request_id, float(value), data)
-    raise ValueError("resposta sem preço válido")
+        price = data.get("premio_mensal")
+        is_number = isinstance(price, int | float) and not isinstance(price, bool)
+        if is_number and price > 0 and data.get("plano_id") == plano_id:
+            return Quote(request_id, float(price), data)
+    raise ValueError("resposta sem preço válido para o plano pedido")
 
 
 def parse_plans(data: object) -> list[Plan]:
@@ -70,11 +79,15 @@ def parse_plans(data: object) -> list[Plan]:
     return plans
 
 
-def parse_rejection(resp: httpx.Response) -> QuoteRejected:
+def parse_rejection(resp: httpx.Response) -> QuoteRefused | QuoteRejected:
     try:
-        detail = resp.json().get("detail", resp.text)
+        body = resp.json()
     except ValueError:
-        detail = resp.text
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    if body.get("error") == "cotacao_recusada":
+        return QuoteRefused(str(body.get("motivo", ""))[:200])
+    detail = body.get("detail") or body.get("detalhe") or resp.text
     if isinstance(detail, list):  # formato de validação do FastAPI
         message = "; ".join(str(d.get("msg", d)) if isinstance(d, dict) else str(d) for d in detail)
         blob = " ".join(str(d.get("loc", "")) if isinstance(d, dict) else "" for d in detail)
@@ -159,7 +172,7 @@ class QuoteClient:
         request_id: str,
         on_attempt: Callable[[dict], None] | None = None,
     ) -> Quote:
-        """Cota ou levanta QuoteRejected (dados inválidos) / QuoteUnavailable (infra)."""
+        """Cota ou levanta QuoteRefused (regra), QuoteRejected (dado) ou QuoteUnavailable."""
         report = on_attempt or (lambda _: None)
         if not self._breaker.allow():
             report({"attempt": 0, "outcome": "circuit_open"})
@@ -180,7 +193,7 @@ class QuoteClient:
             else:
                 if status == 200:
                     try:
-                        quote = parse_quote(resp.json(), request_id)
+                        quote = parse_quote(resp.json(), request_id, slots.plano_id)
                     except ValueError:
                         outcome = "malformed_response"
                     else:

@@ -15,6 +15,9 @@ HANDOFF_RULES: dict[HandoffReason, str] = {
         "/quote falhou após retries, circuito aberto ou resposta inválida."
     ),
     HandoffReason.QUOTE_REJECTED: "A API recusou os dados de novo depois de o lead corrigir.",
+    HandoffReason.QUOTE_REFUSED: (
+        "Recusa por regra de negócio da API (idade > 75, veículo > 20 anos)."
+    ),
 }
 
 

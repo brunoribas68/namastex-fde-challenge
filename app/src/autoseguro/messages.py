@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .models import HandoffReason, Plan
+from .quote_client import Quote
 
 LABELS = {
     "idade": "sua idade",
@@ -23,6 +24,8 @@ HANDOFF = {
     "te passar um valor errado. Um consultor vai te retornar com a cotação em breve.",
     HandoffReason.QUOTE_REJECTED: "Não consegui validar esses dados na cotação. Um consultor "
     "vai te ajudar a acertar isso.",
+    HandoffReason.QUOTE_REFUSED: "Não consegui concluir a cotação. Um consultor vai avaliar seu "
+    "caso e te retornar.",
 }
 
 ALREADY_HANDED_OFF = (
@@ -49,12 +52,47 @@ def money(value: float) -> str:
     return "R$ " + f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def quoted(plan: str, price: float, quote_id: str) -> str:
-    return (
-        f"Cotação do plano {plan}: {money(price)}.\n"
-        f"Código da cotação: {quote_id[:8]}.\n"
-        "Quer simular outra opção? É só me dizer o que muda (ex.: outro plano)."
-    )
+def _details(raw: dict) -> list[str]:
+    """Franquia, coberturas, carência e pro-rata, só do que a API devolveu (nada é inventado)."""
+    lines = []
+    try:
+        if raw.get("franquia") is not None:
+            lines.append(f"Franquia: {money(float(raw['franquia']))}.")
+        if raw.get("coberturas"):
+            lines.append(
+                "Coberturas: " + ", ".join(c.replace("_", " ") for c in raw["coberturas"]) + "."
+            )
+        carencia = raw.get("carencia") or {}
+        if carencia.get("coberturas"):
+            names = " e ".join(carencia["coberturas"])
+            lines.append(
+                f"Carência: {names} só valem após {carencia['dias']} dias do início da vigência."
+            )
+        pro = raw.get("primeiro_pagamento_pro_rata")
+        if pro:
+            lines.append(
+                "Como a vigência não começa no dia 1º, o primeiro pagamento é proporcional: "
+                f"{money(float(pro['valor_primeiro_pagamento']))} "
+                f"({pro['dias_cobrados']} de {pro['dias_no_mes']} dias). "
+                "Os demais meses são integrais."
+            )
+    except (KeyError, TypeError, ValueError):
+        pass  # detalhe em formato inesperado: melhor omitir do que errar
+    return lines
+
+
+def quoted(plan: str, quote: Quote) -> str:
+    lines = [f"Cotação do plano {plan}: {money(quote.price)} por mês.", *_details(quote.raw)]
+    lines += [
+        f"Código da cotação: {quote.request_id[:8]}.",
+        "Quer simular outra opção? É só me dizer o que muda (ex.: outro plano).",
+    ]
+    return "\n".join(lines)
+
+
+def refused(motivo: str) -> str:
+    detail = f" Motivo informado pelo sistema: {motivo}" if motivo else ""
+    return f"Não consegui concluir a cotação.{detail} Vou pedir para um consultor avaliar seu caso."
 
 
 def recap(price: float | None) -> str:

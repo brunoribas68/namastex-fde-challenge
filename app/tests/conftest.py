@@ -6,11 +6,11 @@ import pytest
 from autoseguro.agent import Agent
 from autoseguro.extractor import RegexExtractor
 from autoseguro.models import Plan
-from autoseguro.quote_client import Quote, QuoteRejected, QuoteUnavailable
+from autoseguro.quote_client import Quote, QuoteRefused, QuoteRejected, QuoteUnavailable
 from autoseguro.store import InMemoryStore
 from autoseguro.tracing import Tracer
 
-PLANS = [Plan("basico", "Básico"), Plan("completo", "Completo")]
+PLANS = [Plan("essencial", "Essencial"), Plan("completo", "Completo"), Plan("premium", "Premium")]
 TODAY = date(2026, 7, 1)
 
 
@@ -51,4 +51,4 @@ def make_agent(trace_buffer):
     return _make
 
 
-__all__ = ["FakeQuotes", "QuoteRejected", "QuoteUnavailable", "PLANS", "TODAY"]
+__all__ = ["FakeQuotes", "QuoteRefused", "QuoteRejected", "QuoteUnavailable", "PLANS", "TODAY"]

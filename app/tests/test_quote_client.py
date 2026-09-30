@@ -5,6 +5,7 @@ from autoseguro.models import Slots
 from autoseguro.quote_client import (
     CircuitBreaker,
     QuoteClient,
+    QuoteRefused,
     QuoteRejected,
     QuoteUnavailable,
     parse_plans,
@@ -13,7 +14,7 @@ from autoseguro.quote_client import (
 BASE = "http://quote.test"
 SLOTS = Slots(plano_id="completo", idade=35, veiculo_ano=2022, cep="01310-100",
               data_inicio="2026-07-15")  # fmt: skip
-OK = httpx.Response(200, json={"preco": 1500.0})
+OK = httpx.Response(200, json={"plano_id": "completo", "premio_mensal": 1500.0})
 
 pytestmark = pytest.mark.respx(base_url=BASE)
 
@@ -78,6 +79,28 @@ def test_validation_error_is_not_retried(respx_mock, client):
     assert "ano inválido" in exc.value.detail
 
 
+def test_business_refusal_is_not_retried(respx_mock, client):
+    body = {"error": "cotacao_recusada", "motivo": "Idade acima do limite de aceitacao (75 anos)."}
+    route = respx_mock.post("/quote").mock(return_value=httpx.Response(422, json=body))
+    with pytest.raises(QuoteRefused) as exc:
+        client.quote(SLOTS, "r")
+    assert route.call_count == 1 and "75 anos" in exc.value.motivo
+
+
+def test_payload_invalido_is_rejected_without_fields(respx_mock, client):
+    body = {"error": "payload_invalido", "detalhe": "Invalid isoformat string"}
+    respx_mock.post("/quote").mock(return_value=httpx.Response(400, json=body))
+    with pytest.raises(QuoteRejected) as exc:
+        client.quote(SLOTS, "r")
+    assert exc.value.fields == []
+
+
+def test_wrong_plan_echo_is_treated_as_malformed(respx_mock, client):
+    wrong = httpx.Response(200, json={"plano_id": "essencial", "premio_mensal": 100.0})
+    respx_mock.post("/quote").mock(side_effect=[wrong, OK])
+    assert client.quote(SLOTS, "r").price == 1500.0
+
+
 def test_config_error_fails_fast(respx_mock, client):
     route = respx_mock.post("/quote").mock(return_value=httpx.Response(401))
     with pytest.raises(QuoteUnavailable):
@@ -118,14 +141,21 @@ def test_circuit_breaker_opens_and_recovers(respx_mock, sleeps):
 
 def test_list_plans_caches_and_survives_failure(respx_mock, client):
     route = respx_mock.get("/planos").mock(
-        return_value=httpx.Response(200, json={"planos": [{"id": "basico", "nome": "Básico"}]})
+        return_value=httpx.Response(
+            200,
+            json={
+                "moeda": "BRL",
+                "planos": [{"id": "essencial", "nome": "Essencial"}],
+                "regras": {},
+            },
+        )
     )
-    assert [p.id for p in client.list_plans()] == ["basico"]
+    assert [p.id for p in client.list_plans()] == ["essencial"]
     client.list_plans()
     assert route.call_count == 1
     client._plans_at = None  # força expirar o cache
     route.mock(return_value=httpx.Response(500))
-    assert [p.id for p in client.list_plans()] == ["basico"]  # usa o último cache
+    assert [p.id for p in client.list_plans()] == ["essencial"]  # usa o último cache
 
 
 @pytest.mark.parametrize(

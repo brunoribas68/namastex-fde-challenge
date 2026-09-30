@@ -52,7 +52,7 @@ def test_bare_number_uses_last_question():
 
 
 def test_ambiguous_plan_is_not_chosen():
-    assert "plano_id" not in run("qual a diferença entre básico e completo?").slots
+    assert "plano_id" not in run("qual a diferença entre essencial e completo?").slots
 
 
 @pytest.mark.parametrize(

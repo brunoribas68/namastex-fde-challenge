@@ -1,5 +1,24 @@
 # Desafio Técnico — FDE / AI Engineer (Namastex)
 
+> ## ✅ Solução (Bruno Ribas)
+>
+> Agente de WhatsApp da AutoSeguro que qualifica o lead, cota via `/quote` e decide entre resolver
+> ou passar para um humano — sem nunca inventar preço quando a API falha.
+>
+> | O que você procura | Onde está |
+> |---|---|
+> | **Como rodar** e configurar | [`app/README.md`](app/README.md) |
+> | **Decisões de engenharia** e critérios de handoff | [`app/docs/DECISIONS.md`](app/docs/DECISIONS.md) |
+> | **Log de uma execução completa** (com a `/quote` falhando e a cotação saindo) | [`app/docs/execution-log.md`](app/docs/execution-log.md) |
+> | **Conversas com as IAs** | [`ai-logs/`](ai-logs/) |
+> | Código, testes e Dockerfile | [`app/`](app/) |
+> | CI (lint, testes, build Docker, integração com a API real) | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+>
+> Subir tudo: `cp .env.example .env && docker compose up --build` (quote-api em `:8000`, agente em
+> `:8080`). O restante deste arquivo é o enunciado original, sem alterações.
+
+---
+
 Bem-vindo(a)! Este é um teste **take-home** que espelha o trabalho real de um FDE
 (Forward Deployed Engineer) na Namastex: subir um **agente de verdade**, conectado a
 sistemas que nem sempre colaboram, em cima de **dados bagunçados do mundo real**.
