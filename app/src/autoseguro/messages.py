@@ -9,7 +9,14 @@ LABELS = {
     "idade": "sua idade",
     "veiculo_ano": "o ano do veículo",
     "cep": "seu CEP",
-    "data_inicio": "a data de início da vigência (ex.: 15/07/2026)",
+    "data_inicio": "a data de início da vigência (dd/mm/aaaa)",
+}
+
+# Valor informado mas descartado pelo agente (a API cotaria, mas o dado não faz sentido).
+INVALID = {
+    "veiculo_ano": "O ano do veículo informado está no futuro. Pode confirmar o ano do veículo?",
+    "data_inicio": "A vigência não pode começar no passado. Qual a data de início (a partir de "
+    "hoje, dd/mm/aaaa)?",
 }
 
 HANDOFF = {

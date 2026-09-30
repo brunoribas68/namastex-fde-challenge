@@ -3,10 +3,7 @@
 __pycache__
 .pytest_cache
 .ruff_cache
+.coverage
+htmlcov
 logs
-tests
-docs
-ai-logs
-dataset
-quote-service
 .env

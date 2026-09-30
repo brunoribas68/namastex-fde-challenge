@@ -155,3 +155,41 @@ def test_quote_message_shows_carencia_and_pro_rata_from_api(make_agent):
 def test_quote_message_survives_unexpected_detail_shape(make_agent):
     agent, _ = make_agent(FakeQuotes([Quote("r", 100.0, {"carencia": {"coberturas": ["x"]}})]))
     assert "R$ 100,00" in agent.handle("c1", FULL).text
+
+
+def test_past_start_date_is_not_quoted_and_lead_is_asked_again(make_agent):
+    agent, quotes = make_agent()
+    reply = agent.handle("c1", FULL.replace("15/07/2026", "15/06/2026"))
+    assert reply.stage is Stage.COLLECTING and "passado" in reply.text
+    assert quotes.calls == []
+    assert agent.handle("c1", "20/07/2026").stage is Stage.QUOTED
+    assert str(quotes.calls[-1].data_inicio) == "2026-07-20"
+
+
+def test_future_vehicle_year_asks_to_confirm_instead_of_quoting(make_agent):
+    agent, quotes = make_agent()
+    reply = agent.handle("c1", FULL.replace("2022", "2031"))
+    assert reply.stage is Stage.COLLECTING and "futuro" in reply.text and quotes.calls == []
+    assert agent.handle("c1", "2021").stage is Stage.QUOTED
+    assert quotes.calls[-1].veiculo_ano == 2021
+
+
+def test_invalid_value_after_quote_keeps_previous_quote(make_agent):
+    agent, quotes = make_agent()
+    agent.handle("c1", FULL)
+    reply = agent.handle("c1", "e se começar em 01/01/2020?")
+    assert "passado" in reply.text and len(quotes.calls) == 1
+    assert str(quotes.calls[-1].data_inicio) == "2026-07-15"
+
+
+def test_next_year_model_is_sent_to_the_api(make_agent):
+    agent, quotes = make_agent()
+    assert agent.handle("c1", FULL.replace("2022", "2027")).stage is Stage.QUOTED
+    assert quotes.calls[-1].veiculo_ano == 2027
+
+
+def test_many_thanks_after_quote_never_hand_off(make_agent):
+    agent, _ = make_agent()
+    agent.handle("c1", FULL)
+    for _ in range(5):
+        assert agent.handle("c1", "obrigado").stage is Stage.QUOTED
