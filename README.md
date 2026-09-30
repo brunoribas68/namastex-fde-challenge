@@ -13,9 +13,17 @@
 > | **Conversas com as IAs** | [`ai-logs/`](ai-logs/) |
 > | Código, testes e Dockerfile | [`app/`](app/) |
 > | CI (lint, testes, build Docker, integração com a API real) | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+> | **Roteiro de QA** (cenários e resultado esperado) | [`app/docs/QA.md`](app/docs/QA.md) |
 >
-> Subir tudo: `cp .env.example .env && docker compose up --build` (quote-api em `:8000`, agente em
-> `:8080`). O restante deste arquivo é o enunciado original, sem alterações.
+> Só precisa de Docker. Na raiz do repo:
+>
+> ```bash
+> cp .env.example .env
+> docker compose up --build -d            # quote-api em :8000, agente em :8080
+> docker compose run --rm --build tests   # lint + testes (em container)
+> ```
+>
+> O restante deste arquivo é o enunciado original, sem alterações.
 
 ---
 

@@ -56,8 +56,17 @@ recusas da API e repassa o motivo. Na resposta, mostra o que a API devolveu (fra
 Coletamos `cep` e `data_inicio` (opcionais na API) porque omiti-los deixaria a cotação mais barata
 do que a real (agravo de região, pro-rata).
 
+A exceção são dados que a API **aceitaria** mas que não fazem sentido para o lead: vigência começando
+**no passado** (a API cota sem reclamar) e **ano do veículo no futuro** (a API recusaria com
+"idade do veículo fora das faixas", e o lead iria para um humano por um erro de digitação). O agente
+descarta o valor, explica e pede de novo (evento `slots` com `invalid`). O ano que vem é aceito
+(carro ano/modelo seguinte); a regra de negócio sobre ele continua sendo da API.
+
 ## 6. Simplicidade operacional
 
 Store em memória com lock por conversa (troca por Redis é uma classe); config só por variáveis de
-ambiente; uma imagem Docker; `uv` com lockfile; CI único. Sem framework de agentes: o fluxo é
+ambiente; `uv` com lockfile; CI único. Um `Dockerfile` com dois alvos: `runtime` (padrão, enxuto,
+sem testes nem deps de dev, usuário não-root dono do `.venv`) e `test` (deps de dev + testes, serviço
+`tests` do compose). Assim quem clona o repo sobe, testa e faz QA só com Docker
+(`docker compose run --rm --build tests`), sem instalar Python. Sem framework de agentes: o fluxo é
 pequeno e cabe em ~150 linhas legíveis.

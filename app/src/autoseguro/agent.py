@@ -71,14 +71,19 @@ class Agent:
         if found.wants_human:
             return self._handoff(conv, message_id, HandoffReason.USER_REQUEST)
 
+        invalid = self._drop_invalid(found.slots)
         changed = conv.slots.merge(found.slots)
         conv.stalled = 0 if changed else conv.stalled + (1 if conv.turns > 1 else 0)
-        self.tracer.emit("slots", conv.id, message_id, slots=conv.slots.payload(), changed=changed)
+        self.tracer.emit("slots", conv.id, message_id, slots=conv.slots.payload(), changed=changed,
+                         invalid=invalid)  # fmt: skip
 
-        if conv.stage is Stage.QUOTED and not changed:
+        if conv.stage is Stage.QUOTED and not changed and not invalid:
             return self._reply(conv, message_id, messages.recap(conv.last_price))
         if conv.stalled >= self.policy.max_stalled_turns:
             return self._handoff(conv, message_id, HandoffReason.NO_PROGRESS)
+        if invalid:
+            conv.asked = invalid[0]
+            return self._reply(conv, message_id, " ".join(messages.INVALID[f] for f in invalid))
 
         missing = conv.slots.missing()
         if missing:
@@ -87,6 +92,18 @@ class Agent:
             conv.asked = missing[0]
             return self._reply(conv, message_id, messages.ask(missing, plans, conv.turns == 1))
         return self._quote(conv, message_id, plans)
+
+    def _drop_invalid(self, slots: dict) -> list[str]:
+        """Descarta o que a API cotaria mas não faz sentido: vigência passada, carro do futuro."""
+        today = self.today()
+        invalid = []
+        if slots.get("veiculo_ano") and slots["veiculo_ano"] > today.year + 1:
+            invalid.append("veiculo_ano")
+        if slots.get("data_inicio") and slots["data_inicio"] < today:
+            invalid.append("data_inicio")
+        for name in invalid:
+            del slots[name]
+        return invalid
 
     def _quote(self, conv: Conversation, message_id: str, plans: list[Plan]) -> Reply:
         request_id = uuid.uuid4().hex
