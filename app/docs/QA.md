@@ -26,10 +26,18 @@ m() { curl -s localhost:8080/messages -H 'content-type: application/json' \
 ```powershell
 # Windows PowerShell
 function m($id, $text, $mid) {
-  $body = @{ conversation_id = $id; text = $text }
-  if ($mid) { $body.message_id = $mid }
-  Invoke-RestMethod localhost:8080/messages -Method Post -ContentType 'application/json' `
-    -Body ($body | ConvertTo-Json) | Format-List stage, handoff_reason, price, quote_id, text
+    $body = @{ 
+        conversation_id = $id
+        text            = $text 
+    }
+    if ($mid) { 
+        $body.message_id = $mid 
+    }
+
+    $jsonBody = [System.Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Compress))
+
+    Invoke-RestMethod -Uri "http://localhost:8080/messages" -Method Post -ContentType "application/json; charset=utf-8" -Body $jsonBody | 
+        Format-List stage, handoff_reason, price, quote_id, text
 }
 ```
 
