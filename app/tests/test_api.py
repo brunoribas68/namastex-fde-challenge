@@ -19,3 +19,11 @@ def test_rejects_invalid_payload(make_agent):
     agent, _ = make_agent()
     client = TestClient(create_app(agent))
     assert client.post("/messages", json={"conversation_id": "x", "text": ""}).status_code == 422
+
+
+def test_json_declares_utf8_charset_for_windows_clients(make_agent):
+    agent, _ = make_agent()
+    client = TestClient(create_app(agent))
+    resp = client.post("/messages", json={"conversation_id": "w1", "text": "Olá, cotação"})
+    assert resp.headers["content-type"] == "application/json; charset=utf-8"
+    assert "Olá" in resp.content.decode("utf-8")

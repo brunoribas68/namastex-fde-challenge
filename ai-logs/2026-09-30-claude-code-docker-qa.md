@@ -40,3 +40,10 @@ cenário (caminho feliz, API 100% fora, lenta, parada, recusas, handoff, idempot
 
 Log bruto da sessão: `~/.claude/projects/<slug>/*.jsonl` do ambiente da sessão (não copiado por
 conter contexto do ambiente; exporte pelo menu da sessão se quiser anexar).
+
+## Continuação: acentos quebrados no PowerShell
+
+No Windows PowerShell 5.1, `Invoke-RestMethod` mostrava "CotaÃ§Ã£o". O JSON já saía em UTF-8, mas
+sem `charset` no `Content-Type` o PowerShell decodifica como Latin-1. A API passou a responder
+`application/json; charset=utf-8` (com teste); o envio em UTF-8 já tinha sido corrigido na função
+`m` do `QA.md`. Linux/macOS (`curl`) não eram afetados.

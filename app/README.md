@@ -55,7 +55,8 @@ curl -X POST localhost:8080/messages -H 'content-type: application/json' -d '{
 }'
 ```
 
-No **Windows PowerShell**, `curl` é um apelido de outro comando; use `Invoke-RestMethod`:
+No **Windows PowerShell**, `curl` é um apelido de outro comando; use `Invoke-RestMethod` (para mandar
+texto com acento, use a função `m` de [`docs/QA.md`](docs/QA.md), que envia o corpo em UTF-8):
 
 ```powershell
 Invoke-RestMethod localhost:8080/health
@@ -119,7 +120,8 @@ uv run uvicorn autoseguro.api:create_app --factory --port 8080
 | `GET` | `/health` | Health check |
 | `POST` | `/messages` | Body `{conversation_id, text, message_id?}` → `Reply` (`text`, `stage`, `handoff_reason`, `quote_id`, `price`) |
 
-`message_id` é a chave de idempotência: o WhatsApp reenvia webhooks, e reenvio com o mesmo id devolve
+As respostas são `application/json; charset=utf-8` (o charset explícito evita acentos quebrados no
+Windows PowerShell 5.1). `message_id` é a chave de idempotência: o WhatsApp reenvia webhooks, e reenvio com o mesmo id devolve
 a mesma resposta **sem cotar de novo**.
 
 ## Configuração (variáveis de ambiente)

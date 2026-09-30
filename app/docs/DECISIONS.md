@@ -70,3 +70,6 @@ sem testes nem deps de dev, usuário não-root dono do `.venv`) e `test` (deps d
 `tests` do compose). Assim quem clona o repo sobe, testa e faz QA só com Docker
 (`docker compose run --rm --build tests`), sem instalar Python. Sem framework de agentes: o fluxo é
 pequeno e cabe em ~150 linhas legíveis.
+
+A API do agente responde `application/json; charset=utf-8`. O JSON já é UTF-8, mas sem o charset
+explícito o Windows PowerShell 5.1 (`Invoke-RestMethod`) decodifica como Latin-1 e mostra "CotaÃ§Ã£o".
