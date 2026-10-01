@@ -168,3 +168,14 @@ def test_list_plans_caches_and_survives_failure(respx_mock, client):
 )
 def test_parse_plans_shapes(data):
     assert [p.id for p in parse_plans(data)] == ["a"]
+
+
+def test_circuit_breaker_counts_failures_from_many_threads():
+    from concurrent.futures import ThreadPoolExecutor
+
+    breaker = CircuitBreaker(threshold=1000)
+    with ThreadPoolExecutor(16) as ex:
+        list(ex.map(lambda _: breaker.failure(), range(999)))
+    assert breaker.allow()
+    breaker.failure()
+    assert not breaker.allow()

@@ -12,7 +12,7 @@ from .extractor import Extractor
 from .models import Conversation, HandoffReason, Plan, Reply, Slots, Stage
 from .policy import Policy
 from .quote_client import Quote, QuoteRefused, QuoteRejected, QuoteUnavailable
-from .store import InMemoryStore
+from .store import Store
 from .tracing import Tracer
 
 
@@ -28,7 +28,7 @@ class Agent:
         self,
         extractor: Extractor,
         quotes: Quotes,
-        store: InMemoryStore,
+        store: Store,
         tracer: Tracer,
         policy: Policy | None = None,
         today: Callable[[], date] = date.today,
@@ -47,6 +47,7 @@ class Agent:
             self.tracer.emit("message_in", conversation_id, message_id, text=text)
             reply = self._step(conv, text, message_id)
             conv.replies[message_id] = reply
+            self.store.save(conv)
             self.tracer.emit(
                 "message_out",
                 conversation_id,

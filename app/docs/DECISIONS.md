@@ -73,7 +73,10 @@ vez de passar ao humano. O nome de plano mais longo vence ("Completo Plus" não 
 
 ## 7. Simplicidade operacional
 
-Store em memória com lock por conversa (troca por Redis é uma classe); config só por variáveis de
+Store em memória com lock por conversa e expiração por inatividade (`CONVERSATION_TTL_S`, para a
+memória não crescer sem limite); o agente depende do protocolo `Store`, então trocar por Redis é
+uma classe. Isso implica **1 réplica, 1 worker** hoje; capacidade medida e caminho para escalar em
+[`ARQUITETURA.md`](ARQUITETURA.md). config só por variáveis de
 ambiente; `uv` com lockfile; CI único. Um `Dockerfile` com dois alvos: `runtime` (padrão, enxuto,
 sem testes nem deps de dev, usuário não-root dono do `.venv`) e `test` (deps de dev + testes, serviço
 `tests` do compose). Assim quem clona o repo sobe, testa e faz QA só com Docker

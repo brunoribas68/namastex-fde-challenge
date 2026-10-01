@@ -8,6 +8,7 @@ preço que a API não retornou.
 from __future__ import annotations
 
 import random
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -98,7 +99,8 @@ def parse_rejection(resp: httpx.Response) -> QuoteRefused | QuoteRejected:
 
 
 class CircuitBreaker:
-    """Abre após N falhas seguidas e volta a tentar depois do cooldown."""
+    """Abre após N falhas seguidas e volta a tentar depois do cooldown. Compartilhado entre as
+    threads do servidor, por isso o estado é protegido por lock."""
 
     def __init__(
         self,
@@ -109,23 +111,27 @@ class CircuitBreaker:
         self.threshold, self.cooldown, self._clock = threshold, cooldown, clock
         self._failures = 0
         self._opened_at: float | None = None
+        self._lock = threading.Lock()
 
     def allow(self) -> bool:
-        if self._opened_at is None:
-            return True
-        if self._clock() - self._opened_at >= self.cooldown:
-            self._opened_at = None  # half-open: deixa uma tentativa passar
-            self._failures = self.threshold - 1
-            return True
-        return False
+        with self._lock:
+            if self._opened_at is None:
+                return True
+            if self._clock() - self._opened_at >= self.cooldown:
+                self._opened_at = None  # half-open: deixa uma tentativa passar
+                self._failures = self.threshold - 1
+                return True
+            return False
 
     def success(self) -> None:
-        self._failures, self._opened_at = 0, None
+        with self._lock:
+            self._failures, self._opened_at = 0, None
 
     def failure(self) -> None:
-        self._failures += 1
-        if self._failures >= self.threshold:
-            self._opened_at = self._clock()
+        with self._lock:
+            self._failures += 1
+            if self._failures >= self.threshold:
+                self._opened_at = self._clock()
 
 
 class QuoteClient:

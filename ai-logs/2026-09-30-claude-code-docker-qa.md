@@ -62,3 +62,19 @@ mim para essas perguntas na entrevista."
 - `tests/test_change_scenarios.py` (um teste por mudança; os 4 corrigidos falhavam antes),
   `docs/EVOLUCAO.md` (cenários, checklist, limites e perguntas prováveis) e a seção K do QA (demo ao
   vivo adicionando/removendo plano no `plans.json` da quote-api, validada com Docker).
+
+## Continuação (01/10): arquitetura, elasticidade e escalabilidade
+
+Pedido: "pensando em arquitetura de sistema, elasticidade, escalabilidade e outros parâmetros, veja
+se está tudo certo".
+
+- Teste de carga na stack do compose (instabilidade padrão): ~330 msg/s em coleta, ~15–30
+  cotações/s; gargalo na `/quote` síncrona e lenta.
+- Achado: **vazamento de memória**: conversas nunca saíam da memória (+20 MB a cada 10 mil leads).
+  Correção: expiração por inatividade (`CONVERSATION_TTL_S`), O(1) amortizado, sem remover
+  conversa em processamento; memória medida estável em ~50 MB depois de 40 mil conversas.
+- Circuit breaker protegido por lock (é compartilhado entre threads); protocolo `Store`
+  (`lock`/`get`/`save`) para o `RedisStore` futuro; testes de concorrência (mesma conversa
+  serializada, conversas diferentes em paralelo, reenvio concorrente cota uma vez só).
+- `scripts/load_test.py` e `docs/ARQUITETURA.md` (capacidade medida, o que quebra ao escalar errado,
+  caminho por etapas, perguntas prováveis).
