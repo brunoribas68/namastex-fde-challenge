@@ -47,3 +47,18 @@ No Windows PowerShell 5.1, `Invoke-RestMethod` mostrava "CotaÃ§Ã£o". O JSON 
 sem `charset` no `Content-Type` o PowerShell decodifica como Latin-1. A API passou a responder
 `application/json; charset=utf-8` (com teste); o envio em UTF-8 já tinha sido corrigido na função
 `m` do `QA.md`. Linux/macOS (`curl`) não eram afetados.
+
+## Continuação (01/10): preparar o código para mudanças de planos e regras
+
+Pedido: "Quais seriam as dificuldades caso mudassem os planos e coisas do tipo? Prepare o código e a
+mim para essas perguntas na entrevista."
+
+- Medi o comportamento atual com a API simulada mudando. Problemas encontrados: plano "Completo
+  Plus" ao lado de "Completo" ficava ambíguo para sempre; plano removido com o catálogo em cache
+  virava handoff; id `top_plus` não casava com "top plus".
+- Correções: o nome de plano mais longo vence; recusa da `/quote` força recarregar `/planos`, e se o
+  plano saiu o agente pergunta de novo; plano removido entre turnos também; `PLANS_CACHE_TTL_S`
+  configurável; o LLM recebe as chaves de `SLOT_ORDER`; guardas de teste para campo novo.
+- `tests/test_change_scenarios.py` (um teste por mudança; os 4 corrigidos falhavam antes),
+  `docs/EVOLUCAO.md` (cenários, checklist, limites e perguntas prováveis) e a seção K do QA (demo ao
+  vivo adicionando/removendo plano no `plans.json` da quote-api, validada com Docker).

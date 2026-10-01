@@ -133,6 +133,7 @@ a mesma resposta **sem cotar de novo**.
 | `QUOTE_MAX_ATTEMPTS` | `4` | Máximo de tentativas por cotação |
 | `QUOTE_BACKOFF_S` | `0.4` | Base do backoff exponencial (com jitter) |
 | `QUOTE_DEADLINE_S` | `15.0` | Orçamento total de tempo por cotação |
+| `PLANS_CACHE_TTL_S` | `300` | Cache do `GET /planos`: tempo máximo para um plano novo/removido aparecer (uma recusa da API força recarga) |
 | `TRACE_FILE` | `logs/trace.jsonl` | Arquivo do trace; `-` escreve no stdout (padrão no Docker) |
 | `ANTHROPIC_API_KEY` | vazio | Se definida, usa LLM para extrair dados; senão, regex |
 | `LLM_MODEL` | `claude-sonnet-5-5` | Modelo do extrator LLM |
@@ -171,6 +172,8 @@ uv run ruff check . && uv run ruff format --check .
 QUOTE_API_URL=http://localhost:8000 uv run pytest -m integration   # contra a quote-api real
 ```
 
+`tests/test_change_scenarios.py` simula a API mudando (plano novo/removido, regra nova, campo
+obrigatório novo, contrato renomeado) e documenta o que o agente faz em cada caso.
 `tests/test_challenge.py` tem um teste de aceitação por critério de avaliação do desafio (ponta a
 ponta, `/quote` falhando, handoff, rastreabilidade, dados sensíveis), usando o `QuoteClient` real
 contra uma `/quote` simulada e entrando pela API HTTP.
@@ -187,7 +190,7 @@ app/src/autoseguro/   agent.py (estados) · quote_client.py (resiliência) · ex
 app/tests/            unitários por módulo + test_challenge.py (aceitação) + test_docs.py
                       (guarda de documentação) + test_integration.py
 app/docs/             DECISIONS.md (decisões e critérios) · execution-log.md (execução completa)
-                      QA.md (roteiro de teste manual)
+                      QA.md (roteiro de teste manual) · EVOLUCAO.md (e se planos/regras/API mudarem)
 ```
 
 ## Contrato da API de cotação (validado contra a `quote-service`)
@@ -204,6 +207,9 @@ app/docs/             DECISIONS.md (decisões e critérios) · execution-log.md 
 ## Premissas e limitações
 
 - As regras de cotação ficam **na API** (fonte única): o agente não as duplica, reage às recusas.
+- Planos novos, preços e regras não pedem deploy do agente; plano removido faz o agente perguntar de
+  novo. O que exige código (campo obrigatório novo, contrato da `/quote`) e o passo a passo estão em
+  [`docs/EVOLUCAO.md`](docs/EVOLUCAO.md).
 - Coletamos os cinco campos mesmo com `cep` e `data_inicio` opcionais na API: sem CEP o agravo de
   região some do preço e sem data não há pro-rata, e a cotação sairia enganosamente mais barata.
 - Estado de conversas em memória (1 réplica). Para escalar, implemente outra `Store` (Redis).

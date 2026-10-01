@@ -151,10 +151,14 @@ class QuoteClient:
         self._plans_at: float | None = None
         self._plans_ttl = plans_ttl
 
-    def list_plans(self) -> list[Plan]:
-        """Planos vigentes (cache com TTL; em falha, devolve o último cache ou lista vazia)."""
+    def list_plans(self, refresh: bool = False) -> list[Plan]:
+        """Planos vigentes (cache com TTL; em falha, devolve o último cache ou lista vazia).
+
+        `refresh=True` ignora o cache: usado quando a API recusa a cotação, porque o catálogo pode
+        ter mudado (plano removido) antes de o TTL expirar.
+        """
         fresh = self._plans_at is not None and self._clock() - self._plans_at < self._plans_ttl
-        if fresh:
+        if fresh and not refresh:
             return self._plans
         try:
             resp = self._http.get("/planos")

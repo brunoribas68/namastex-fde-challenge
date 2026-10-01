@@ -22,7 +22,7 @@ class FakeQuotes:
         self.plans = plans
         self.calls = []
 
-    def list_plans(self):
+    def list_plans(self, refresh=False):
         return self.plans
 
     def quote(self, slots, request_id, on_attempt=None):

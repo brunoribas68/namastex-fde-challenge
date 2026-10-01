@@ -31,5 +31,6 @@ def build_agent(settings: Settings) -> Agent:
         max_attempts=settings.quote_max_attempts,
         backoff=settings.quote_backoff_s,
         deadline=settings.quote_deadline_s,
+        plans_ttl=settings.plans_cache_ttl_s,
     )
     return Agent(extractor, quotes, InMemoryStore(), Tracer(sink))

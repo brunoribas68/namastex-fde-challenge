@@ -54,7 +54,7 @@ envia o corpo em UTF-8. Assim os acentos saem certos também no Windows PowerShe
 |---|---|---|---|
 | A1 | `curl localhost:8080/health` e `curl localhost:8000/health` | `{"status":"ok"}` nos dois | ☐ |
 | A2 | `curl localhost:8000/planos` | Planos `essencial`, `completo`, `premium` e as regras | ☐ |
-| A3 | `docker compose run --rm --build tests` | `All checks passed!`, 90 testes passando, cobertura ≥ 85% | ☐ |
+| A3 | `docker compose run --rm --build tests` | `All checks passed!`, 105 testes passando, cobertura ≥ 85% | ☐ |
 | A4 | `docker compose run --rm --build tests pytest -m integration` | 5 testes passando contra a quote-api real | ☐ |
 | A5 | `docker compose exec agent python -m autoseguro.cli --demo` | Três turnos; o último termina em `[stage=quoted]` com R$ 209,90 | ☐ |
 
@@ -138,6 +138,22 @@ O circuit breaker abre depois de 5 cotações falhas seguidas e fica 30 s aberto
 |---|---|---|---|
 | I1 | Ponha `ANTHROPIC_API_KEY=...` no `.env`, `docker compose up -d agent` e mande `m qa-i1 "Nasci em 1990, tenho um Onix 2021 e moro no CEP 01310-100; quero o completo a partir de 15/03/2027"` | O LLM extrai os campos; `quoted`. O preço continua vindo só da API | ☐ |
 | I2 | Com uma chave inválida, repita B1 | Cai no extrator regex e cota normalmente (falha do LLM não derruba o agente) | ☐ |
+
+## K. Mudança de catálogo ao vivo
+
+Mostra que plano novo, preço novo e plano removido **não precisam de deploy do agente** (detalhes em
+[`EVOLUCAO.md`](EVOLUCAO.md)). A quote-service relê `data/plans.json` a cada requisição. Antes,
+ponha `PLANS_CACHE_TTL_S=5` no `.env` e rode `docker compose up -d agent` (assim o agente vê a
+mudança em 5 s; o padrão é 300 s).
+
+| # | Passo | Esperado | ✓ |
+|---|---|---|---|
+| K1 | `m qa-k1 "oi"` | Lista Essencial, Completo, Premium | ☐ |
+| K2 | Adicione o plano Ouro: `docker compose exec quote-api python -c "import json,pathlib as p; f=p.Path('data/plans.json'); d=json.loads(f.read_text()); d['planos'].append({'id':'ouro','nome':'Ouro','base_mensal':499.9,'franquia':1000,'coberturas':['colisao','roubo','furto','terceiros','vidros','carro_reserva','assistencia_24h']}); f.write_text(json.dumps(d))"`, espere 5 s e mande `m qa-k2 "Tenho 35 anos, carro 2022, CEP 01310-100, inicio em 01/03/2027, plano ouro"` | `quoted`, **R$ 499,90**, franquia R$ 1.000 | ☐ |
+| K3 | `m qa-k3 "Tenho 35 anos, carro 2022, CEP 01310-100, inicio em 01/03/2027"` | "Falta só o plano desejado (Essencial, Completo, Premium, Ouro)" | ☐ |
+| K4 | Remova o Premium: `docker compose exec quote-api python -c "import json,pathlib as p; f=p.Path('data/plans.json'); d=json.loads(f.read_text()); d['planos']=[x for x in d['planos'] if x['id']!='premium']; f.write_text(json.dumps(d))"` e, **sem esperar**, `m qa-k3 "premium"` | `collecting`, **sem** ir para humano. Dentro dos 5 s de cache: "O plano premium não está mais disponível. Falta só o plano desejado (Essencial, Completo, Ouro)" (a API recusou e o agente recarregou o catálogo). Depois disso o Premium já sumiu da lista e o agente só pergunta de novo entre Essencial, Completo e Ouro | ☐ |
+| K5 | `m qa-k3 "completo"` | `quoted`, R$ 209,90 | ☐ |
+| K6 | Volte ao catálogo original: `docker compose up -d --force-recreate quote-api` e tire `PLANS_CACHE_TTL_S` do `.env` | `/planos` com os 3 planos originais | ☐ |
 
 Ao terminar: `docker compose down`.
 

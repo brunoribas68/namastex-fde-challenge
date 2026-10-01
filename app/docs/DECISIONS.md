@@ -62,7 +62,16 @@ A exceção são dados que a API **aceitaria** mas que não fazem sentido para o
 descarta o valor, explica e pede de novo (evento `slots` com `invalid`). O ano que vem é aceito
 (carro ano/modelo seguinte); a regra de negócio sobre ele continua sendo da API.
 
-## 6. Simplicidade operacional
+## 6. Catálogo de planos dinâmico
+
+Os planos vêm de `GET /planos` com cache de `PLANS_CACHE_TTL_S` (300 s): plano novo, preço ou regra
+nova não pedem deploy do agente. O cache poupa a API instável e mantém o último catálogo quando ela
+cai; o custo é até um TTL de atraso. Para não perder o lead nesse intervalo, uma recusa da `/quote`
+força recarregar o catálogo, e se o plano escolhido saiu dele o agente avisa e pergunta de novo em
+vez de passar ao humano. O nome de plano mais longo vence ("Completo Plus" não é ambíguo com
+"Completo"). Cenários, limites e o checklist para campo novo: [`EVOLUCAO.md`](EVOLUCAO.md).
+
+## 7. Simplicidade operacional
 
 Store em memória com lock por conversa (troca por Redis é uma classe); config só por variáveis de
 ambiente; `uv` com lockfile; CI único. Um `Dockerfile` com dois alvos: `runtime` (padrão, enxuto,

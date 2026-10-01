@@ -14,6 +14,7 @@ class Settings:
     quote_max_attempts: int = 4
     quote_backoff_s: float = 0.4
     quote_deadline_s: float = 15.0
+    plans_cache_ttl_s: float = 300.0  # quanto tempo um plano novo/removido leva para aparecer
     trace_file: str = "logs/trace.jsonl"  # "-" escreve no stdout
     anthropic_api_key: str | None = None
     llm_model: str = "claude-sonnet-5-5"
@@ -31,6 +32,7 @@ _ENV = {
     "QUOTE_MAX_ATTEMPTS": ("quote_max_attempts", int),
     "QUOTE_BACKOFF_S": ("quote_backoff_s", float),
     "QUOTE_DEADLINE_S": ("quote_deadline_s", float),
+    "PLANS_CACHE_TTL_S": ("plans_cache_ttl_s", float),
     "TRACE_FILE": ("trace_file", str),
     "ANTHROPIC_API_KEY": ("anthropic_api_key", str),
     "LLM_MODEL": ("llm_model", str),
