@@ -15,6 +15,7 @@
 > | CI (lint, testes, build Docker, integração com a API real) | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 > | **Roteiro de QA** (cenários e resultado esperado) | [`app/docs/QA.md`](app/docs/QA.md) |
 > | **E se planos, regras ou a API mudarem?** | [`app/docs/EVOLUCAO.md`](app/docs/EVOLUCAO.md) |
+> | **Arquitetura, capacidade medida e como escalar** | [`app/docs/ARQUITETURA.md`](app/docs/ARQUITETURA.md) |
 >
 > Só precisa de Docker. Na raiz do repo:
 >

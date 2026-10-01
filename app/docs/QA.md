@@ -54,7 +54,7 @@ envia o corpo em UTF-8. Assim os acentos saem certos também no Windows PowerShe
 |---|---|---|---|
 | A1 | `curl localhost:8080/health` e `curl localhost:8000/health` | `{"status":"ok"}` nos dois | ☐ |
 | A2 | `curl localhost:8000/planos` | Planos `essencial`, `completo`, `premium` e as regras | ☐ |
-| A3 | `docker compose run --rm --build tests` | `All checks passed!`, 105 testes passando, cobertura ≥ 85% | ☐ |
+| A3 | `docker compose run --rm --build tests` | `All checks passed!`, 112 testes passando, cobertura ≥ 85% | ☐ |
 | A4 | `docker compose run --rm --build tests pytest -m integration` | 5 testes passando contra a quote-api real | ☐ |
 | A5 | `docker compose exec agent python -m autoseguro.cli --demo` | Três turnos; o último termina em `[stage=quoted]` com R$ 209,90 | ☐ |
 

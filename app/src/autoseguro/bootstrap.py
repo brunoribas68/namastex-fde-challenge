@@ -33,4 +33,4 @@ def build_agent(settings: Settings) -> Agent:
         deadline=settings.quote_deadline_s,
         plans_ttl=settings.plans_cache_ttl_s,
     )
-    return Agent(extractor, quotes, InMemoryStore(), Tracer(sink))
+    return Agent(extractor, quotes, InMemoryStore(settings.conversation_ttl_s), Tracer(sink))

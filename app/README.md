@@ -133,6 +133,7 @@ a mesma resposta **sem cotar de novo**.
 | `QUOTE_MAX_ATTEMPTS` | `4` | Máximo de tentativas por cotação |
 | `QUOTE_BACKOFF_S` | `0.4` | Base do backoff exponencial (com jitter) |
 | `QUOTE_DEADLINE_S` | `15.0` | Orçamento total de tempo por cotação |
+| `CONVERSATION_TTL_S` | `86400` | Conversa parada há mais que isso sai da memória (limita o uso de RAM); o lead que voltar recomeça |
 | `PLANS_CACHE_TTL_S` | `300` | Cache do `GET /planos`: tempo máximo para um plano novo/removido aparecer (uma recusa da API força recarga) |
 | `TRACE_FILE` | `logs/trace.jsonl` | Arquivo do trace; `-` escreve no stdout (padrão no Docker) |
 | `ANTHROPIC_API_KEY` | vazio | Se definida, usa LLM para extrair dados; senão, regex |
@@ -191,6 +192,8 @@ app/tests/            unitários por módulo + test_challenge.py (aceitação) +
                       (guarda de documentação) + test_integration.py
 app/docs/             DECISIONS.md (decisões e critérios) · execution-log.md (execução completa)
                       QA.md (roteiro de teste manual) · EVOLUCAO.md (e se planos/regras/API mudarem)
+                      ARQUITETURA.md (capacidade medida, gargalos e como escalar)
+app/scripts/          load_test.py (teste de carga)
 ```
 
 ## Contrato da API de cotação (validado contra a `quote-service`)
@@ -212,7 +215,9 @@ app/docs/             DECISIONS.md (decisões e critérios) · execution-log.md 
   [`docs/EVOLUCAO.md`](docs/EVOLUCAO.md).
 - Coletamos os cinco campos mesmo com `cep` e `data_inicio` opcionais na API: sem CEP o agravo de
   região some do preço e sem data não há pro-rata, e a cotação sairia enganosamente mais barata.
-- Estado de conversas em memória (1 réplica). Para escalar, implemente outra `Store` (Redis).
+- Estado de conversas em memória, com expiração (`CONVERSATION_TTL_S`): rode **1 réplica, 1 worker**.
+  Capacidade medida, gargalos e o caminho para escalar (Redis atrás do protocolo `Store`, webhook
+  assíncrono com fila): [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 - O dataset do desafio (`dataset/`, com dados pessoais) foi removido deste repositório de propósito
   e não é usado; próximo passo natural: avaliar o extrator nele, fora do repo público.
 - Lead menor de 18 anos ou com mais de 75 é recusado pela API e cai em `quote_refused`.
