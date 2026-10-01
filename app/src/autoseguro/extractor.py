@@ -15,7 +15,7 @@ from typing import Protocol
 
 import httpx
 
-from .models import HandoffReason, Plan, Slots
+from .models import SLOT_ORDER, HandoffReason, Plan, Slots
 from .tracing import redact_text
 
 
@@ -133,12 +133,18 @@ class RegexExtractor:
 
     @staticmethod
     def _plan(t: str, plans: list[Plan], slots: dict) -> None:
-        hits = {
-            p.id
+        """Casa nome ou id do plano; o nome mais longo vence ("completo plus" não é "completo")."""
+        aliases = {
+            (alias, p.id)
             for p in plans
-            if re.search(rf"\b{re.escape(_norm(p.id))}\b", t)
-            or re.search(rf"\b{re.escape(_norm(p.nome))}\b", t)
+            for alias in (_norm(p.nome), _norm(p.id), re.sub(r"[_-]+", " ", _norm(p.id)))
         }
+        hits = set()
+        for alias, plan_id in sorted(aliases, key=lambda a: -len(a[0])):
+            pattern = rf"\b{re.escape(alias)}\b"
+            if re.search(pattern, t):
+                hits.add(plan_id)
+                t = re.sub(pattern, " ", t)  # não deixa um nome mais curto casar dentro dele
         if len(hits) == 1:  # ambíguo (0 ou 2+) => pergunta de novo
             slots["plano_id"] = hits.pop()
 
@@ -186,9 +192,7 @@ class LLMExtractor:
         data = json.loads(raw)
         if data.get("plano_id") not in ids:
             data["plano_id"] = None
-        fields = {
-            k: data.get(k) for k in ("idade", "veiculo_ano", "cep", "data_inicio", "plano_id")
-        }
+        fields = {k: data.get(k) for k in SLOT_ORDER}
         validated = Slots(**fields)  # valida tipos; ValidationError é ValueError
         topic = data.get("topic")
         return Extraction(

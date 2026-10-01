@@ -17,7 +17,7 @@ from .tracing import Tracer
 
 
 class Quotes(Protocol):
-    def list_plans(self) -> list[Plan]: ...
+    def list_plans(self, refresh: bool = False) -> list[Plan]: ...
     def quote(
         self, slots: Slots, request_id: str, on_attempt: Callable[[dict], None] | None = None
     ) -> Quote: ...
@@ -85,13 +85,24 @@ class Agent:
             conv.asked = invalid[0]
             return self._reply(conv, message_id, " ".join(messages.INVALID[f] for f in invalid))
 
+        gone = self._drop_retired_plan(conv, plans)
         missing = conv.slots.missing()
         if missing:
             if "plano_id" in missing and not plans:  # sem lista de planos não dá para perguntar
                 return self._handoff(conv, message_id, HandoffReason.QUOTE_UNAVAILABLE)
             conv.asked = missing[0]
-            return self._reply(conv, message_id, messages.ask(missing, plans, conv.turns == 1))
+            text = messages.ask(missing, plans, conv.turns == 1)
+            return self._reply(conv, message_id, messages.plan_gone(gone) + text if gone else text)
         return self._quote(conv, message_id, plans)
+
+    @staticmethod
+    def _drop_retired_plan(conv: Conversation, plans: list[Plan]) -> str | None:
+        """Plano escolhido saiu do catálogo (`/planos` mudou): esquece e pergunta de novo."""
+        chosen = conv.slots.plano_id
+        if chosen and plans and chosen not in {p.id for p in plans}:
+            conv.slots.plano_id = None
+            return chosen
+        return None
 
     def _drop_invalid(self, slots: dict) -> list[str]:
         """Descarta o que a API cotaria mas não faz sentido: vigência passada, carro do futuro."""
@@ -127,6 +138,12 @@ class Agent:
         except QuoteRefused as exc:
             self.tracer.emit("quote_refused", conv.id, message_id, request_id=request_id,
                              motivo=exc.motivo)  # fmt: skip
+            fresh = self.quotes.list_plans(refresh=True)  # a recusa pode ser catálogo desatualizado
+            gone = self._drop_retired_plan(conv, fresh)
+            if gone:
+                conv.asked = "plano_id"
+                ask = messages.ask(["plano_id"], fresh, first_turn=False)
+                return self._reply(conv, message_id, messages.plan_gone(gone) + ask)
             return self._handoff(conv, message_id, HandoffReason.QUOTE_REFUSED,
                                  messages.refused(exc.motivo))  # fmt: skip
         except QuoteUnavailable as exc:

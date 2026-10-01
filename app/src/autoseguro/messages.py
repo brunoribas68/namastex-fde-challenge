@@ -97,6 +97,10 @@ def quoted(plan: str, quote: Quote) -> str:
     return "\n".join(lines)
 
 
+def plan_gone(plan_id: str) -> str:
+    return f"O plano {plan_id} não está mais disponível. "
+
+
 def refused(motivo: str) -> str:
     detail = f" Motivo informado pelo sistema: {motivo}" if motivo else ""
     return f"Não consegui concluir a cotação.{detail} Vou pedir para um consultor avaliar seu caso."

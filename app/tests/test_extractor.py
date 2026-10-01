@@ -111,3 +111,14 @@ def test_llm_extractor_does_not_send_pii():
     body = route.calls[0].request.content.decode()
     assert "123.456.789-09" not in body
     assert "a@b.com" not in body
+
+
+def test_llm_extractor_asks_for_every_slot():
+    """Campo novo em SLOT_ORDER precisa entrar no prompt do LLM (guarda contra esquecer)."""
+    from autoseguro.models import SLOT_ORDER
+
+    with respx.mock:
+        route = respx.post(URL).mock(return_value=httpx.Response(500))
+        LLMExtractor("k", "m").extract("oi", PLANS, TODAY)
+    system = json.loads(route.calls[0].request.content)["system"]
+    assert [s for s in SLOT_ORDER if s not in system] == []
